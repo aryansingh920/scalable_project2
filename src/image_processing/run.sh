@@ -8,7 +8,7 @@ pip3 install -r requriements.txt
 
 
 # to generate
-python generate.py --width 128 --height 64 --length 4 --symbols symbols.txt --count 3200 --output-dir test
+python src/image_processing/generate.py --width 128 --height 64 --length 4 --symbols symbols.txt --count 3200 --output-dir test
 
 
 # to train
