@@ -1,110 +1,74 @@
 import csv
+import requests
+import time
 import os
-import asyncio
-import httpx
-from time import sleep
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Asynchronous function to download PNG files with retries, backoff, and logging
+# Function to download and save content from a URL with retries
 
 
-async def download_png(client, download_link, save_folder, filename, retry_limit=5, backoff_factor=2):
-    try:
-        retries = 0
-        backoff = 1
-        while retries < retry_limit:
-            response = await client.get(download_link)
+def download_content(url, filename, retries=5, delay=2):
+    attempt = 0
+    while attempt < retries:
+        try:
+            response = requests.get(url)
             if response.status_code == 200:
-                file_path = os.path.join(save_folder, filename)
-                with open(file_path, 'wb') as file:
-                    file.write(response.content)
-                print(f"Downloaded {filename} successfully.")
-                return True  # Download successful
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+                # Write the content to the file
+                with open(filename, 'wb') as f:
+                    f.write(response.content)
+                return True  # Successful download
             else:
-                retries += 1
-                print(f"Failed to download {filename} (Attempt {
-                      retries}/{retry_limit}) - Status: {response.status_code}")
-                await asyncio.sleep(backoff)
-                backoff *= backoff_factor  # Exponential backoff for each retry
+                print(f"Failed to download {filename}: HTTP {
+                      response.status_code}")
+        except Exception as e:
+            print(f"Error downloading {filename}: {e}")
 
-        print(f"Failed to download {filename} after {retry_limit} attempts.")
-        return False  # Download failed
-    except Exception as e:
-        print(f"Error downloading {filename}: {e}")
-        return False  # Download failed
+        attempt += 1
+        print(f"Retrying {filename}... Attempt {attempt} of {retries}")
+        time.sleep(delay)  # Wait before retrying
 
-# Asynchronous function to handle all downloads with limited concurrency
+    print(f"Failed to download {filename} after {retries} attempts.")
+    return False  # Failed after retries
 
 
-async def download_files_from_csv(csv_file_path, save_folder, shortname_variable, max_concurrent_downloads=10):
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)  # Create folder if it doesn't exist
+def process_row(row, base_url, download_directory):
+    url_extension = row[0]
+    full_url = f"{base_url}{url_extension}"
+    # Save in the specified directory
+    filename = os.path.join(download_directory, url_extension)
+    return download_content(full_url, filename)
 
-    # Read the CSV file without column names
-    with open(csv_file_path, mode='r') as file:
-        # Treat each row as a single file name
-        csv_reader = [row[0] for row in csv.reader(file)]
-        total_files = len(csv_reader)  # Total number of files
-        downloaded_count = 0  # Counter for downloaded files
-        failed_files = []  # List to track failed downloads
-
-        # Define headers to mimic a browser visit
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-
-        # Create an asynchronous client session
-        async with httpx.AsyncClient(headers=headers, timeout=None) as client:
-            tasks = []
-            # Limit concurrent requests
-            semaphore = asyncio.Semaphore(max_concurrent_downloads)
-
-            async def limited_download(filename):
-                async with semaphore:
-                    download_link = f"https://cs7ns1.scss.tcd.ie/?shortname={
-                        shortname_variable}&myfilename={filename}"
-                    success = await download_png(client, download_link, save_folder, filename)
-                    return success
-
-            for filename in csv_reader:
-                tasks.append(limited_download(filename))
-
-            # Wait for all tasks to complete with concurrency limits
-            results = await asyncio.gather(*tasks)
-
-            # Count successful downloads
-            downloaded_count = sum(results)
-            failed_files = [csv_reader[i]
-                            for i, result in enumerate(results) if not result]
-
-        # Log failed downloads
-        if failed_files:
-            with open('failed_downloads.txt', 'w') as fail_log:
-                fail_log.write("\n".join(failed_files))
-
-        # Print progress
-        print(f"\nDownload complete. Successfully downloaded {
-              downloaded_count} out of {total_files} files.")
-        if failed_files:
-            print(f"Failed downloads logged in 'failed_downloads.txt'.")
-
-# Main function to run the async loop
+# Function to read CSV and run downloads in parallel
 
 
+def process_csv_parallel(csv_file, base_url, download_directory, max_workers=5):
+    with open(csv_file, newline='') as csvfile:
+        csvreader = csv.reader(csvfile)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for row in csvreader:
+                # Submitting the download task for each row in the CSV
+                futures.append(executor.submit(
+                    process_row, row, base_url, download_directory))
 
-def main():
-    # Define paths and variables
-    csv_file_path = 'singha12-challenge-filenames.csv'  # CSV file path
-    save_folder = 'test_captcha'  # Folder where files will be saved
-    shortname_variable = 'singha12'  # Replace with your actual shortname value
+            # Collect results as they are completed
+            for future in as_completed(futures):
+                try:
+                    result = future.result()  # Get the result of each download task
+                except Exception as e:
+                    print(f"An error occurred: {e}")
 
-    # Download files
-    asyncio.run(download_files_from_csv(
-        csv_file_path, save_folder, shortname_variable))
 
-# Entry point
+# Main script
 if __name__ == "__main__":
-    main()
+    # Use raw string for Windows path
+    csv_file = r'singha12-challenge-filenames.csv'
+    # Replace with your base URL
+    base_url = 'https://cs7ns1.scss.tcd.ie/?shortname=singha12&myfilename='
+    download_directory = 'captchas_test'  # Directory to save downloaded files
 
-
-
-
+    # Process CSV and download files in parallel
+    process_csv_parallel(csv_file, base_url, download_directory, max_workers=8)
