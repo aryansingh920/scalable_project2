@@ -6,3 +6,10 @@
 tempCodeRunnerFile.py/
 
 /scalable_env
+
+/.venv
+
+/src/image_processing/test
+
+/src/image_processing/test.h5.json
+/src/image_processing/test.h5.keras
