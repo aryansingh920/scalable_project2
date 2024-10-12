@@ -1,0 +1,6 @@
+tensorflow==2.17.0  # Ensure this matches your version
+opencv-python
+numpy
+argparse
+keras==3.5.0 # Adjust version as needed; generally, this matches TensorFlow's version
+captcha
