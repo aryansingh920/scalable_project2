@@ -1,19 +1,19 @@
 #!/bin/bash
 
 
-python3 -m venv scalable_env
-source ./scalable_env/bin/activate
+python3 -m venv .venv
+source ./.venv/bin/activate
 
 pip3 install -r requriements.txt
 
 
 # to generate
-python src/image_processing/generate.py --width 128 --height 64 --length 4 --symbols src/image_processing/symbols.txt --count 3200 --output-dir src/image_processing/test
+python src/image_processing/generate.py --width 128 --height 64 --length 4 --symbols src/image_processing/symbols.txt --count 32 --output-dir src/image_processing/test --font src/image_processing/font/font1.ttf
 
 
 # to train
-python src/image_processing/train.py --width 128 --height 64 --length 4 --symbols src/image_processing/symbols.txt --batch-size 32 --epochs 5 --output-model src/image_processing/test.h5 --train-dataset src/image_processing/training_data --validate-dataset src/image_processing/validation_data
+python src/image_processing/train.py --width 128 --height 64 --length 4 --symbols src/image_processing/symbols.txt --batch-size 32 --epochs 5 --output-model src/image_processing/test.h5 --train-dataset src/image_processing/training_data --validate-dataset src/image_processing/validation_data --font src/image_processing/font/font1.ttf
 
 
 # to predict 
-python src/image_processing/classify.py --model-name src/image_processing/test --captcha-dir src/image_processing/validation_data --output src/image_processing/output.txt --symbols src/image_processing/symbols.txt
+python src/image_processing/classify.py --model-name src/image_processing/test --captcha-dir src/image_processing/validation_data --output src/image_processing/output.txt --symbols src/image_processing/symbols.txt --font src/image_processing/font/font1.ttf

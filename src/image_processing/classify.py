@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# classify.py
 import tensorflow.keras as keras
 import tensorflow as tf
 import argparse
@@ -9,25 +9,23 @@ import numpy
 import cv2
 import os
 import warnings
+from captcha.image import ImageCaptcha
+from PIL import ImageFont
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 
 def decode(characters, y):
     y = numpy.argmax(numpy.array(y), axis=2)[:, 0]
     return ''.join([characters[x] for x in y])
 
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--model-name', help='Model name to use for classification', type=str)
-    parser.add_argument(
-        '--captcha-dir', help='Where to read the captchas to break', type=str)
-    parser.add_argument(
-        '--output', help='File where the classifications should be saved', type=str)
-    parser.add_argument(
-        '--symbols', help='File with the symbols to use in captchas', type=str)
+    parser.add_argument('--model-name', help='Model name to use for classification', type=str)
+    parser.add_argument('--captcha-dir', help='Where to read the captchas to break', type=str)
+    parser.add_argument('--output', help='File where the classifications should be saved', type=str)
+    parser.add_argument('--symbols', help='File with the symbols to use in captchas', type=str)
+    parser.add_argument('--font', help='Path to the font file to use', type=str)
     args = parser.parse_args()
 
     if args.model_name is None:
@@ -46,6 +44,10 @@ def main():
         print("Please specify the captcha symbols file")
         exit(1)
 
+    if args.font is None:
+        print("Please specify the font file")
+        exit(1)
+
     symbols_file = open(args.symbols, 'r')
     captcha_symbols = symbols_file.readline().strip()
     symbols_file.close()
@@ -55,19 +57,19 @@ def main():
     with tf.device('/cpu:0'):
         with open(args.output, 'w') as output_file:
             # Load the model architecture from the updated JSON file
-            json_file = open(args.model_name+'.h5.json',
-                             'r')  # Updated to .h5.json
+            json_file = open(args.model_name+'.h5.json', 'r')  # Updated to .h5.json
             loaded_model_json = json_file.read()
             json_file.close()
             model = keras.models.model_from_json(loaded_model_json)
 
             # Load the weights from the updated file
-            # Updated to .h5.keras
-            model.load_weights(args.model_name+'.h5.keras')
+            model.load_weights(args.model_name+'.h5.keras')  # Updated to .h5.keras
 
             model.compile(loss='categorical_crossentropy',
                           optimizer=keras.optimizers.Adam(1e-3, amsgrad=True),
                           metrics=['accuracy'])
+
+            captcha_generator = ImageCaptcha(width=128, height=64, fonts=[args.font])
 
             for x in os.listdir(args.captcha_dir):
                 # load image and preprocess it
@@ -77,11 +79,9 @@ def main():
                 (c, h, w) = image.shape
                 image = image.reshape([-1, c, h, w])
                 prediction = model.predict(image)
-                output_file.write(
-                    x + ", " + decode(captcha_symbols, prediction) + "\n")
+                output_file.write(x + ", " + decode(captcha_symbols, prediction) + "\n")
 
                 print('Classified ' + x)
-
 
 if __name__ == '__main__':
     main()

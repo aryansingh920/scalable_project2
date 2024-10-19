@@ -4,3 +4,4 @@ numpy
 argparse
 keras==3.5.0 # Adjust version as needed; generally, this matches TensorFlow's version
 captcha
+pillow

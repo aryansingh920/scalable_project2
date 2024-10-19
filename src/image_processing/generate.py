@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-
+# generate.py
 import os
 import numpy
 import random
 import string
 import cv2
 import argparse
-import captcha.image
+from captcha.image import ImageCaptcha
+from PIL import ImageFont
 
 def main():
     parser = argparse.ArgumentParser()
@@ -16,6 +17,7 @@ def main():
     parser.add_argument('--count', help='How many captchas to generate', type=int)
     parser.add_argument('--output-dir', help='Where to store the generated captchas', type=str)
     parser.add_argument('--symbols', help='File with the symbols to use in captchas', type=str)
+    parser.add_argument('--font', help='Path to the font file to use', type=str)
     args = parser.parse_args()
 
     if args.width is None:
@@ -42,11 +44,14 @@ def main():
         print("Please specify the captcha symbols file")
         exit(1)
 
-    captcha_generator = captcha.image.ImageCaptcha(width=args.width, height=args.height)
+    if args.font is None:
+        print("Please specify the font file")
+        exit(1)
 
-    symbols_file = open(args.symbols, 'r')
-    captcha_symbols = symbols_file.readline().strip()
-    symbols_file.close()
+    captcha_generator = ImageCaptcha(width=args.width, height=args.height, fonts=[args.font])
+
+    with open(args.symbols, 'r') as symbols_file:
+        captcha_symbols = symbols_file.readline().strip()
 
     print("Generating captchas with symbol set {" + captcha_symbols + "}")
 

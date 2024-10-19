@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-
-import tensorflow.keras as keras # type: ignore
+# train.py
+import tensorflow.keras as keras  # type: ignore
 import tensorflow as tf
 import argparse
 import random
@@ -9,41 +9,44 @@ import numpy
 import cv2
 import os
 import warnings
+from captcha.image import ImageCaptcha
+from PIL import ImageFont
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 # Build a Keras model given some parameters
-
 def create_model(captcha_length, captcha_num_symbols, input_shape, model_depth=5, module_size=2):
     input_tensor = keras.Input(input_shape)
     x = input_tensor
     for i, module_length in enumerate([module_size] * model_depth):
         for j in range(module_length):
             x = keras.layers.Conv2D(
-                32 * 2**min(i, 3), kernel_size=3, padding='same', kernel_initializer='he_uniform')(x)
+                32 * 2 ** min(i, 3), kernel_size=3, padding='same', kernel_initializer='he_uniform')(x)
             x = keras.layers.BatchNormalization()(x)
             x = keras.layers.Activation('relu')(x)
         x = keras.layers.MaxPooling2D(2)(x)
 
     x = keras.layers.Flatten()(x)
     x = [keras.layers.Dense(captcha_num_symbols, activation='softmax', name='char_%d' % (
-        i + 1))(x) for i in range(captcha_length)]
+            i + 1))(x) for i in range(captcha_length)]
     model = keras.Model(inputs=input_tensor, outputs=x)
 
     return model
 
+
 # A Sequence represents a dataset for training in Keras
-
-
 class ImageSequence(keras.utils.Sequence):
-    def __init__(self, directory_name, batch_size, captcha_length, captcha_symbols, captcha_width, captcha_height):
+    def __init__(self, directory_name, batch_size, captcha_length, captcha_symbols, captcha_width, captcha_height,
+                 font_path):
         self.directory_name = directory_name
         self.batch_size = batch_size
         self.captcha_length = captcha_length
         self.captcha_symbols = captcha_symbols
         self.captcha_width = captcha_width
         self.captcha_height = captcha_height
+        self.font_path = font_path
 
         file_list = os.listdir(self.directory_name)
         self.files = dict(
@@ -53,12 +56,14 @@ class ImageSequence(keras.utils.Sequence):
 
     def __len__(self):
         return int(numpy.floor(self.count / self.batch_size))
-    
+
     def __getitem__(self, idx):
         X = numpy.zeros((self.batch_size, self.captcha_height,
-                        self.captcha_width, 3), dtype=numpy.float32)
+                         self.captcha_width, 3), dtype=numpy.float32)
         y = [numpy.zeros((self.batch_size, len(self.captcha_symbols)),
-                        dtype=numpy.uint8) for _ in range(self.captcha_length)]
+                         dtype=numpy.uint8) for _ in range(self.captcha_length)]
+
+        captcha_generator = ImageCaptcha(width=self.captcha_width, height=self.captcha_height, fonts=[self.font_path])
 
         for i in range(self.batch_size):
             if len(self.files) == 0:
@@ -111,6 +116,7 @@ def main():
         '--epochs', help='How many training epochs to run', type=int)
     parser.add_argument(
         '--symbols', help='File with the symbols to use in captchas', type=str)
+    parser.add_argument('--font', help='Path to the font file to use', type=str)
     args = parser.parse_args()
 
     if args.width is None:
@@ -149,6 +155,10 @@ def main():
         print("Please specify the captcha symbols file")
         exit(1)
 
+    if args.font is None:
+        print("Please specify the font file")
+        exit(1)
+
     captcha_symbols = None
     with open(args.symbols) as symbols_file:
         # Read and strip any whitespace/newline
@@ -168,18 +178,18 @@ def main():
         model.summary()
 
         training_data = ImageSequence(
-            args.train_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height)
+            args.train_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height, args.font)
         validation_data = ImageSequence(
-            args.validate_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height)
+            args.validate_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height, args.font)
 
         callbacks = [
             keras.callbacks.EarlyStopping(patience=3),
             keras.callbacks.ModelCheckpoint(
-                args.output_model_name+'.keras', save_best_only=False)
+                args.output_model_name + '.keras', save_best_only=False)
         ]
 
         # Save the model architecture to JSON
-        with open(args.output_model_name+".json", "w") as json_file:
+        with open(args.output_model_name + ".json", "w") as json_file:
             json_file.write(model.to_json())
 
         try:
@@ -193,8 +203,8 @@ def main():
 
         except KeyboardInterrupt:
             print('KeyboardInterrupt caught, saving current weights as ' +
-                  args.output_model_name+'_resume.h5')
-            model.save_weights(args.output_model_name+'_resume.h5')
+                  args.output_model_name + '_resume.h5')
+            model.save_weights(args.output_model_name + '_resume.h5')
 
 
 if __name__ == '__main__':
