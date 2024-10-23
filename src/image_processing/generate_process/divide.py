@@ -1,11 +1,12 @@
+# generate.py
 import os
 import shutil
 import random
 
 # Paths
-source_dir = 'test'  # The directory you want to split
-test_dir = 'train_data'  # Destination for 90% of the files
-validation_dir = 'validation_data'  # Destination for 10% of the files
+source_dir = '../../data/test'  # The directory you want to split
+test_dir = '../../data/train/training_data'  # Destination for 90% of the files
+validation_dir = '../../data/train/validation_data'  # Destination for 10% of the files
 
 # Create directories if they don't exist
 os.makedirs(test_dir, exist_ok=True)
@@ -32,3 +33,5 @@ for file in validation_files:
     shutil.move(os.path.join(source_dir, file), os.path.join(validation_dir, file))
 
 print(f'Moved {len(test_files)} files to {test_dir} and {len(validation_files)} files to {validation_dir}')
+
+os.rmdir("../../data/test")

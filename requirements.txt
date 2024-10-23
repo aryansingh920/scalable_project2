@@ -2,6 +2,6 @@ tensorflow==2.17.0  # Ensure this matches your version
 opencv-python
 numpy
 argparse
-keras==3.5.0 # Adjust version as needed; generally, this matches TensorFlow's version
+# keras==3.5.0  # Generally, this matches TensorFlow's version, but you don't need this line.
 captcha
 pillow

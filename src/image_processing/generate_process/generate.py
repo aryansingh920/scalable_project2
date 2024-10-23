@@ -48,26 +48,33 @@ def main():
         print("Please specify the font file")
         exit(1)
 
+    # Initialize the captcha generator with specified font
     captcha_generator = ImageCaptcha(width=args.width, height=args.height, fonts=[args.font])
 
+    # Read the captcha symbols from the file
     with open(args.symbols, 'r') as symbols_file:
         captcha_symbols = symbols_file.readline().strip()
 
     print("Generating captchas with symbol set {" + captcha_symbols + "}")
 
+    # Check if the output directory exists, if not create it
     if not os.path.exists(args.output_dir):
         print("Creating output directory " + args.output_dir)
         os.makedirs(args.output_dir)
 
+    # Loop to generate the specified count of captchas
     for i in range(args.count):
-        random_str = ''.join([random.choice(captcha_symbols) for j in range(args.length)])
+        random_str = ''.join([random.choice(captcha_symbols) for j in range(random.randint(1,args.length))])
         image_path = os.path.join(args.output_dir, random_str+'.png')
+
+        # Handle case where the filename already exists by adding a version number
         if os.path.exists(image_path):
             version = 1
             while os.path.exists(os.path.join(args.output_dir, random_str + '_' + str(version) + '.png')):
                 version += 1
             image_path = os.path.join(args.output_dir, random_str + '_' + str(version) + '.png')
 
+        # Generate the captcha image and save it using OpenCV
         image = numpy.array(captcha_generator.generate_image(random_str))
         cv2.imwrite(image_path, image)
 
