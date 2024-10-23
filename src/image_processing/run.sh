@@ -12,8 +12,8 @@ python src/image_processing/generate.py --width 128 --height 64 --length 4 --sym
 
 
 # to train
-python src/image_processing/train.py --width 128 --height 64 --length 4 --symbols src/image_processing/symbols.txt --batch-size 32 --epochs 5 --output-model src/image_processing/test.h5 --train-dataset src/image_processing/training_data --validate-dataset src/image_processing/validation_data --font src/image_processing/font/font1.ttf
+python src/image_processing/train.py --width 128 --height 64 --length 4 --symbols src/image_processing/symbols.txt --batch-size 32 --epochs 5 --output-model src/image_processing/test.h5 --train-dataset src/image_processing/train_data --validate-dataset src/image_processing/validation_data
 
 
 # to predict 
-python src/image_processing/classify.py --model-name src/image_processing/test --captcha-dir src/image_processing/validation_data --output src/image_processing/output.txt --symbols src/image_processing/symbols.txt --font src/image_processing/font/font1.ttf
+python src/image_processing/classify.py --model-name src/image_processing/test --captcha-dir src/image_processing/validation_data --output src/output.txt --symbols src/image_processing/symbols.txt

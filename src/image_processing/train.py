@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# train.py
+
 import tensorflow.keras as keras  # type: ignore
 import tensorflow as tf
 import argparse
@@ -9,14 +9,13 @@ import numpy
 import cv2
 import os
 import warnings
-from captcha.image import ImageCaptcha
-from PIL import ImageFont
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 # Build a Keras model given some parameters
+
 def create_model(captcha_length, captcha_num_symbols, input_shape, model_depth=5, module_size=2):
     input_tensor = keras.Input(input_shape)
     x = input_tensor
@@ -37,16 +36,16 @@ def create_model(captcha_length, captcha_num_symbols, input_shape, model_depth=5
 
 
 # A Sequence represents a dataset for training in Keras
+
+
 class ImageSequence(keras.utils.Sequence):
-    def __init__(self, directory_name, batch_size, captcha_length, captcha_symbols, captcha_width, captcha_height,
-                 font_path):
+    def __init__(self, directory_name, batch_size, captcha_length, captcha_symbols, captcha_width, captcha_height):
         self.directory_name = directory_name
         self.batch_size = batch_size
         self.captcha_length = captcha_length
         self.captcha_symbols = captcha_symbols
         self.captcha_width = captcha_width
         self.captcha_height = captcha_height
-        self.font_path = font_path
 
         file_list = os.listdir(self.directory_name)
         self.files = dict(
@@ -62,8 +61,6 @@ class ImageSequence(keras.utils.Sequence):
                          self.captcha_width, 3), dtype=numpy.float32)
         y = [numpy.zeros((self.batch_size, len(self.captcha_symbols)),
                          dtype=numpy.uint8) for _ in range(self.captcha_length)]
-
-        captcha_generator = ImageCaptcha(width=self.captcha_width, height=self.captcha_height, fonts=[self.font_path])
 
         for i in range(self.batch_size):
             if len(self.files) == 0:
@@ -116,7 +113,6 @@ def main():
         '--epochs', help='How many training epochs to run', type=int)
     parser.add_argument(
         '--symbols', help='File with the symbols to use in captchas', type=str)
-    parser.add_argument('--font', help='Path to the font file to use', type=str)
     args = parser.parse_args()
 
     if args.width is None:
@@ -155,10 +151,6 @@ def main():
         print("Please specify the captcha symbols file")
         exit(1)
 
-    if args.font is None:
-        print("Please specify the font file")
-        exit(1)
-
     captcha_symbols = None
     with open(args.symbols) as symbols_file:
         # Read and strip any whitespace/newline
@@ -178,9 +170,9 @@ def main():
         model.summary()
 
         training_data = ImageSequence(
-            args.train_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height, args.font)
+            args.train_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height)
         validation_data = ImageSequence(
-            args.validate_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height, args.font)
+            args.validate_dataset, args.batch_size, args.length, captcha_symbols, args.width, args.height)
 
         callbacks = [
             keras.callbacks.EarlyStopping(patience=3),
