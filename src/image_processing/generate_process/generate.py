@@ -62,21 +62,22 @@ def main():
         print("Creating output directory " + args.output_dir)
         os.makedirs(args.output_dir)
 
-    # Loop to generate the specified count of captchas
-    for i in range(args.count):
-        random_str = ''.join([random.choice(captcha_symbols) for j in range(random.randint(1,args.length))])
-        image_path = os.path.join(args.output_dir, random_str+'.png')
+    generated_count = 0
+    while generated_count < args.count:
+        # Generate a random captcha string
+        random_str = ''.join([random.choice(captcha_symbols) for j in range(random.randint(1, args.length))])
+        image_path = os.path.join(args.output_dir, random_str + '.png')
 
-        # Handle case where the filename already exists by adding a version number
+        # Check if the file already exists
         if os.path.exists(image_path):
-            version = 1
-            while os.path.exists(os.path.join(args.output_dir, random_str + '_' + str(version) + '.png')):
-                version += 1
-            image_path = os.path.join(args.output_dir, random_str + '_' + str(version) + '.png')
+            print(f"Captcha {random_str}.png already exists, skipping...")
+            continue  # Try generating a different captcha
 
         # Generate the captcha image and save it using OpenCV
         image = numpy.array(captcha_generator.generate_image(random_str))
         cv2.imwrite(image_path, image)
+        print(f"Captcha {random_str}.png generated successfully")
+        generated_count += 1
 
 if __name__ == '__main__':
     main()
