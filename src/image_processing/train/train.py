@@ -1,168 +1,152 @@
 #!/usr/bin/env python3
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import os
-import random
-import argparse
-import cv2
 import numpy as np
-import tensorflow.keras as keras
-from tensorflow.keras import layers
+import cv2
 import tensorflow as tf
+import tensorflow.keras as keras
+from tensorflow.keras.utils import to_categorical
 
+# Hardcoded input arguments
+train_dataset = 'C:/kv/GitHub/scalable_project2/src/image_processing/train/training_data'
+validate_dataset = 'C:/kv/GitHub/scalable_project2/src/image_processing/train/validation_data'
+batch_size = 32
+epochs = 5
+input_model_name = 'captcha_model.h5'
+output_model_name = 'captcha_model'
+captcha_min_length = 1  # Minimum length of CAPTCHA
+captcha_max_length = 7  # Maximum length of CAPTCHA
+captcha_width = 192
+captcha_height = 96
+captcha_symbols = "123456789aBCdeFghjkMnoPQRsTUVwxYZ+%|#][{}\-$%"  # Set of symbols used in CAPTCHA
 
-# CTC loss function
-def ctc_loss_lambda_func(args):
-    y_pred, labels, input_length, label_length = args
-    return tf.keras.backend.ctc_batch_cost(labels, y_pred, input_length, label_length)
+# Build a Keras model given some parameters
+def create_model(captcha_max_length, captcha_num_symbols, input_shape, model_depth=5, module_size=2):
+    input_tensor = keras.Input(input_shape)
+    x = input_tensor
+    for i in range(model_depth):
+        for j in range(module_size):
+            x = keras.layers.Conv2D(32 * 2**min(i, 3), kernel_size=3, padding='same', kernel_initializer='he_uniform')(x)
+            x = keras.layers.BatchNormalization()(x)
+            x = keras.layers.Activation('relu')(x)
+        x = keras.layers.MaxPooling2D(2)(x)
 
-
-# CNN + RNN + CTC model architecture
-def create_model(max_captcha_length, captcha_num_symbols, input_shape, rnn_units=128):
-    input_tensor = layers.Input(shape=input_shape)
-
-    # Convolutional layers
-    x = layers.Conv2D(32, (3, 3), padding='same', activation='relu')(input_tensor)
-    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
-    x = layers.Conv2D(64, (3, 3), padding='same', activation='relu')(x)
-    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
-    x = layers.Conv2D(128, (3, 3), padding='same', activation='relu')(x)
-    x = layers.MaxPooling2D(pool_size=(2, 2))(x)
-
-    # Flatten and reshape for RNN layers
-    x = layers.Reshape((-1, x.shape[-1]))(x)
-
-    # RNN layers (LSTM)
-    x = layers.Bidirectional(layers.LSTM(rnn_units, return_sequences=True))(x)
-
-    # Dense layer with softmax activation for character prediction
-    x = layers.Dense(captcha_num_symbols, activation='softmax')(x)
-
-    # Model for training
-    model = keras.Model(inputs=input_tensor, outputs=x)
+    x = keras.layers.Flatten()(x)
+    # Multi-output for each character in the CAPTCHA
+    outputs = [keras.layers.Dense(captcha_num_symbols, activation='softmax', name=f'char_{i+1}')(x) for i in range(captcha_max_length)]
+    model = keras.Model(inputs=input_tensor, outputs=outputs)
 
     return model
 
-
-# Custom data generator with support for variable-length captchas
-class CaptchaSequence(keras.utils.Sequence):
-    def __init__(self, directory, batch_size, max_captcha_length, symbols, width, height):
-        self.directory = directory
+# A Sequence represents a dataset for training in Keras
+class ImageSequence(keras.utils.Sequence):
+    def __init__(self, directory_name, batch_size, captcha_min_length, captcha_max_length, captcha_symbols, captcha_width, captcha_height):
+        self.directory_name = directory_name
         self.batch_size = batch_size
-        self.max_captcha_length = max_captcha_length
-        self.symbols = symbols
-        self.width = width
-        self.height = height
-        self.files = os.listdir(directory)
+        self.captcha_min_length = captcha_min_length
+        self.captcha_max_length = captcha_max_length
+        self.captcha_symbols = captcha_symbols
+        self.captcha_width = captcha_width
+        self.captcha_height = captcha_height
+        self.num_symbols = len(captcha_symbols)
+
+        if not os.path.exists(self.directory_name):
+            print(f"Directory {self.directory_name} does not exist.")
+            os.makedirs(self.directory_name)
+
+        # List all files in the dataset directory
+        self.files = [f for f in os.listdir(self.directory_name) if f.endswith('.png')]
+        if not self.files:
+            raise ValueError(f"No PNG files found in {self.directory_name}.")
 
     def __len__(self):
-        return len(self.files) // self.batch_size
-
+        return int(np.ceil(len(self.files) / self.batch_size))
+    
     def __getitem__(self, idx):
         batch_files = self.files[idx * self.batch_size:(idx + 1) * self.batch_size]
-        X = np.zeros((self.batch_size, self.height, self.width, 3), dtype=np.float32)
-        labels = np.ones([self.batch_size, self.max_captcha_length]) * -1  # Padding with -1 for CTC
-        label_lengths = np.zeros([self.batch_size, 1])
-        input_lengths = np.ones([self.batch_size, 1]) * (self.width // 4)
+        batch_images = []
+        batch_labels = [[] for _ in range(self.captcha_max_length)]  # List of lists to hold labels for each character position
 
-        for i, file_name in enumerate(batch_files):
-            label = file_name.split('.')[0]
-            image = cv2.imread(os.path.join(self.directory, file_name))
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) / 255.0
-            X[i] = image
+        for file_name in batch_files:
+            image_path = os.path.join(self.directory_name, file_name)
+            image = cv2.imread(image_path)
+            image = cv2.resize(image, (self.captcha_width, self.captcha_height))
+            image = image.astype('float32') / 255.0
 
-            # Encode labels and handle variable-length captchas
-            for j, ch in enumerate(label):
-                labels[i, j] = self.symbols.find(ch)
-            label_lengths[i] = len(label)
+            # Extract CAPTCHA text
+            captcha_text = file_name.split('.')[0]
+            cleaned_text = captcha_text.split('_')[0]  # Ignore anything after "_"
+            captcha_length = len(cleaned_text)
 
-        inputs = [X, labels, input_lengths, label_lengths]
-        outputs = np.zeros([self.batch_size])
-        return inputs, outputs
+            # Assign each character in the CAPTCHA to one output of the model
+            for i in range(captcha_length):
+                char_label = self.captcha_symbols.index(cleaned_text[i])
+                batch_labels[i].append(to_categorical(char_label, num_classes=self.num_symbols))
 
+            # If CAPTCHA is shorter than max length, append blank labels
+            for i in range(captcha_length, self.captcha_max_length):
+                batch_labels[i].append(np.zeros(self.num_symbols))
 
+            batch_images.append(image)
+
+        batch_images = np.array(batch_images)
+
+        # Convert labels to numpy arrays
+        batch_labels = [np.array(label) for label in batch_labels]
+
+        if len(batch_images) == 0 or not all([len(label) > 0 for label in batch_labels]):
+            raise ValueError(f"Empty batch or empty labels at index {idx}.")
+
+        return batch_images, tuple(batch_labels)
+
+# Main function for building, training, and saving the model
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--width', type=int, required=True)
-    parser.add_argument('--height', type=int, required=True)
-    parser.add_argument('--length', type=int, required=True, help='Maximum captcha length')
-    parser.add_argument('--batch-size', type=int, required=True)
-    parser.add_argument('--epochs', type=int, required=True)
-    parser.add_argument('--train-dataset', type=str, required=True)
-    parser.add_argument('--validate-dataset', type=str)
-    parser.add_argument('--symbols', type=str, required=True)
-    parser.add_argument('--output-model', type=str, required=True)
-    args = parser.parse_args()
+    strategy = tf.distribute.MirroredStrategy()  # Use multi-GPU if available
+    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
 
-    if args.width is None:
-        print("Please specify the captcha image width")
-        exit(1)
+    with strategy.scope():
+        model = create_model(captcha_max_length, len(captcha_symbols), (captcha_height, captcha_width, 3))
+        
+        if os.path.exists(input_model_name):
+            print(f"Loading weights from {input_model_name}")
+            model.load_weights(input_model_name)
 
-    if args.height is None:
-        print("Please specify the captcha image height")
-        exit(1)
+        # Assign unique accuracy metrics for each character output
+        metrics = {f'char_{i+1}': 'accuracy' for i in range(captcha_max_length)}
 
-    if args.length is None:
-        print("Please specify the captcha length")
-        exit(1)
+        # Compile the model
+        model.compile(
+            loss='categorical_crossentropy',
+            optimizer=keras.optimizers.Adam(1e-3, amsgrad=True),
+            metrics=metrics  # Unique accuracy for each output
+        )
 
-    if args.batch_size is None:
-        print("Please specify the training batch size")
-        exit(1)
+    model.summary()
 
-    if args.epochs is None:
-        print("Please specify the number of training epochs to run")
-        exit(1)
+    # Data generators for training and validation sets
+    training_data = ImageSequence(train_dataset, batch_size, captcha_min_length, captcha_max_length, captcha_symbols, captcha_width, captcha_height)
+    validation_data = ImageSequence(validate_dataset, batch_size, captcha_min_length, captcha_max_length, captcha_symbols, captcha_width, captcha_height)
 
-    if args.train_dataset is None:
-        print("Please specify the path to the training data set")
-        exit(1)
+    # Callbacks for training
+    callbacks = [
+        keras.callbacks.EarlyStopping(patience=3),
+        keras.callbacks.ModelCheckpoint(output_model_name + '.keras', save_best_only=True)
+    ]
 
-    if args.validate_dataset is None:
-        print("Please specify the path to the validation data set")
-        exit(1)
-
-    if args.output_model_name is None:
-        print("Please specify a name for the trained model")
-        exit(1)
-
-    if args.symbols is None:
-        print("Please specify the captcha symbols file")
-        exit(1)
-
-    captcha_symbols = None
-
-
-
-    with open(args.symbols, 'r') as f:
-        captcha_symbols = f.readline().strip()
-
-    # Build the model
-    model = create_model(args.length, len(captcha_symbols), (args.height, args.width, 3))
-
-    # CTC loss calculation
-    labels = layers.Input(name='the_labels', shape=[args.length], dtype='float32')
-    input_lengths = layers.Input(name='input_length', shape=[1], dtype='int64')
-    label_lengths = layers.Input(name='label_length', shape=[1], dtype='int64')
-    loss_out = layers.Lambda(ctc_loss_lambda_func, output_shape=(1,), name='ctc')(
-        [model.output, labels, input_lengths, label_lengths])
-
-    model_ctc = keras.Model(inputs=[model.input, labels, input_lengths, label_lengths], outputs=loss_out)
-    model_ctc.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer='adam')
-
-    # Training and validation data generators
-    train_gen = CaptchaSequence(args.train - dir, args.batch_size, args.length, captcha_symbols, args.width,
-                                args.height)
-    if args.validate_dir:
-        val_gen = CaptchaSequence(args.validate_dir, args.batch_size, args.length, captcha_symbols, args.width,
-                                  args.height)
-    else:
-        val_gen = None
+    # Save the model architecture to JSON
+    with open(output_model_name + ".json", "w") as json_file:
+        json_file.write(model.to_json())
 
     # Train the model
-    model_ctc.fit(train_gen, validation_data=val_gen, epochs=args.epochs)
-
-    # Save the model
-    model.save(args.output_model)
-
+    model.fit(
+        training_data,
+        validation_data=validation_data,
+        epochs=epochs,
+        callbacks=callbacks,
+    )
 
 if __name__ == '__main__':
     main()
