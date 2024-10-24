@@ -4,9 +4,9 @@ import shutil
 import random
 
 # Paths
-source_dir = '../../data/test'  # The directory you want to split
-test_dir = '../../data/train/training_data'  # Destination for 90% of the files
-validation_dir = '../../data/train/validation_data'  # Destination for 10% of the files
+source_dir = '/Users/aryansingh/Documents/scalable_project2/src/data/test_dataset'  # The directory you want to split
+test_dir = '/Users/aryansingh/Documents/scalable_project2/src/data/training_data'  # Destination for 80% of the files
+validation_dir = '/Users/aryansingh/Documents/scalable_project2/src/data/validation_data'  # Destination for 20% of the files
 
 # Create directories if they don't exist
 os.makedirs(test_dir, exist_ok=True)
@@ -19,7 +19,7 @@ files = os.listdir(source_dir)
 random.shuffle(files)
 
 # Calculate the split index
-split_index = int(len(files) * 0.9)
+split_index = int(len(files) * 0.8)
 
 # Split the files into test and validation sets
 test_files = files[:split_index]
@@ -34,4 +34,4 @@ for file in validation_files:
 
 print(f'Moved {len(test_files)} files to {test_dir} and {len(validation_files)} files to {validation_dir}')
 
-os.rmdir("../../data/test")
+# os.rmdir("../../data/test")
