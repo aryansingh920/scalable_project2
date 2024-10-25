@@ -3,7 +3,7 @@ from src.image_processing.train.train_helper import TrainingHelper
 import tensorflow as tf
 
 # Load the test image
-image_path = 'src/data/Aryan/captchas_test/0a0b46fcdfcaa133d5c1acbd60088f9e0ee36ec4.png'
+image_path = '../data/Aryan/captchas_test/0a0b46fcdfcaa133d5c1acbd60088f9e0ee36ec4.png'
 # Load the input image (use any image containing noise)
 image = cv2.imread(image_path)
 
