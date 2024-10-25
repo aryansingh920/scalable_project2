@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#train.py
 
 import warnings
 
@@ -99,7 +100,7 @@ class ImageSequence(keras.utils.Sequence):
 
             # random_image_label = random_image_label.split('_')[0]
             random_image_label = '{:$<6}'.format(random_image_label.split('_')[0])
-            # padded_label = random_image_label.ljust(self.captcha_length, ' ')  # Pad with spaces
+            # padded_label = random_image_label.ljust(self.captcha_length, '')  # Pad with spaces
 
             for j, ch in enumerate(random_image_label):
                 if j < self.captcha_length:  # Skip padding characters (spaces)

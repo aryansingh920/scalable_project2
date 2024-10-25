@@ -23,4 +23,4 @@ python3.10 src/image_processing/train/train.py --train-dataset "src/data/trainin
 
 
 # to predict 
-python3.10 src/image_processing/classify/classify.py --width 192 --height 96 --length 6 --captcha-dir src/data/Aryan/captchas_test --input-model src/image_processing/captcha_model.keras --symbols src/image_processing/symbols.txt --output src/image_processing/output/output.txt
+python3.10 src/image_processing/classify/classify.py --width 192 --height 96 --length 6 --captcha-dir src/data/Aryan/captchas_test --input-model src/image_processing/captcha_model.keras.keras --symbols src/image_processing/symbols.txt --output src/image_processing/output/output.txt

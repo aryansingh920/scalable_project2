@@ -1,86 +1,87 @@
 #!/usr/bin/env python3
-# classify.py
-import argparse
-import numpy as np
-import cv2
-import tensorflow as tf
-from tensorflow.keras import models
+#classify.py
+
+
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import os
+import cv2
+import numpy
+import string
+import random
+import argparse
+import tensorflow as tf
+import tensorflow.keras as keras
+from matplotlib import pyplot as plt
 
 
-def decode_batch_predictions(pred, max_len, symbols):
-    input_len = np.ones(pred.shape[0]) * pred.shape[1]
-    results = tf.keras.backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0]
-    decoded = tf.keras.backend.get_value(results)
-
-    predictions = []
-    for seq in decoded:
-        label = ''.join([symbols[int(i)] for i in seq if i != -1])
-        predictions.append(label)
-    return predictions
-
+def decode(characters, y):
+    y = numpy.argmax(numpy.array(y), axis=2)[:,0]
+    decoded_string = ''.join([characters[x] for x in y])
+    # Strip trailing '$' (padding symbol)
+    return decoded_string.rstrip('-')
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--width', type=int, required=True, help='Width of captcha images')
-    parser.add_argument('--height', type=int, required=True, help='Height of captcha images')
-    parser.add_argument('--length', type=int, required=True, help='Maximum captcha length (<= 6)')
-    parser.add_argument('--captcha-dir', type=str, required=True,
-                        help='Directory containing captcha images to classify')
-    parser.add_argument('--input-model', type=str, required=True, help='Path to the trained model file')
-    parser.add_argument('--symbols', type=str, required=True, help='File containing the symbols used in captchas')
-    parser.add_argument('--output', type=str, required=True, help='File where the classifications should be saved')
-
+    parser.add_argument('--model-name', help='Model name to use for classification', type=str)
+    parser.add_argument('--captcha-dir', help='Where to read the captchas to break', type=str)
+    parser.add_argument('--output', help='File where the classifications should be saved', type=str)
+    parser.add_argument('--symbols', help='File with the symbols to use in captchas', type=str)
     args = parser.parse_args()
 
-    # Validate length argument
-    if args.length <= 0 or args.length > 6:
-        print("Error: Length must be between 1 and 6.")
+    if args.model_name is None:
+        print("Please specify the CNN model to use")
         exit(1)
 
-    # Check if captcha directory exists
-    if not os.path.exists(args.captcha_dir):
-        print(f"Error: Captcha directory '{args.captcha_dir}' does not exist.")
+    if args.captcha_dir is None:
+        print("Please specify the directory with captchas to break")
         exit(1)
 
-    # Check if the model file exists
-    if not os.path.exists(args.input_model):
-        print(f"Error: Model file '{args.input_model}' does not exist.")
+    if args.output is None:
+        print("Please specify the path to the output file")
         exit(1)
 
-    # Check if the symbols file exists
-    if not os.path.exists(args.symbols):
-        print(f"Error: Symbols file '{args.symbols}' does not exist.")
+    if args.symbols is None:
+        print("Please specify the captcha symbols file")
         exit(1)
 
-    # Load captcha symbols
-    with open(args.symbols) as symbols_file:
-        captcha_symbols = symbols_file.readline().strip()
+    symbols_file = open(args.symbols, 'r')
+    captcha_symbols = symbols_file.readline().strip()
+    symbols_file.close()
 
-    # Load the model
-    model = models.load_model(args.input_model)
+    print("Classifying captchas with symbol set {" + captcha_symbols + "}")
 
-    with open(args.output, 'w') as output_file:
-        for file_name in os.listdir(args.captcha_dir):
-            # Load and preprocess the input image
-            raw_data = cv2.imread(os.path.join(args.captcha_dir, file_name))
-            if raw_data is None:
-                print(f"Warning: Could not read image {file_name}. Skipping.")
-                continue
+    with tf.device('/cpu:0'):
+        with open(args.output, 'w') as output_file:
+            json_file = open(args.model_name+'.json', 'r')
+            loaded_model_json = json_file.read()
+            json_file.close()
+            model = keras.models.model_from_json(loaded_model_json)
+            model.load_weights(args.model_name+'.keras')
+            model.compile(loss='categorical_crossentropy',
+                          optimizer=keras.optimizers.Adam(1e-3, amsgrad=True),
+                          metrics=['accuracy'])
 
-            rgb_data = cv2.cvtColor(raw_data, cv2.COLOR_BGR2RGB)
-            processed_data = np.array(rgb_data) / 255.0
-            processed_data = processed_data.reshape((1, args.height, args.width, 3))
+            for x in os.listdir(args.captcha_dir):
+                # load image and preprocess it
+                raw_data = cv2.imread(os.path.join(args.captcha_dir, x))
+                # raw_data = cv2.imread(os.path.join(args.captcha_dir, x))
+                if raw_data is None:
+                    print(f"Warning: Could not read image {x}")
+                    continue
 
-            # Classify the image
-            predictions = model.predict(processed_data)
-            decoded_predictions = decode_batch_predictions(predictions, args.length, captcha_symbols)
-
-            # Write the classification result to the output file
-            output_file.write(f"{file_name}, {decoded_predictions[0]}\n")
-            print(f'Classified {file_name} as {decoded_predictions[0]}')
+                rgb_data = cv2.cvtColor(raw_data, cv2.COLOR_BGR2RGB)
+                image = numpy.array(rgb_data) / 255.0
+                true_image = image
+                (c, h, w) = image.shape
+                image = image.reshape([-1, c, h, w])
+                prediction = model.predict(image)
+                output_file.write(x + "," + decode(captcha_symbols, prediction) + "\n")
+                print('Classified: ' + x)
+                print('The model predicts: ' + decode(captcha_symbols, prediction) )
 
 
 if __name__ == '__main__':
     main()
-    #classify
