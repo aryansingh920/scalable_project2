@@ -2,6 +2,8 @@
 
 import warnings
 
+from src.image_processing.train.train_helper import TrainingHelper
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -84,10 +86,16 @@ class ImageSequence(keras.utils.Sequence):
             raw_data = cv2.imread(os.path.join(self.directory_name, random_image_file))
             rgb_data = cv2.cvtColor(raw_data, cv2.COLOR_BGR2RGB)
             processed_data = numpy.array(rgb_data) / 255.0
+
+            # Preprocess the image
+            # processed_data = TrainingHelper.preprocess_image(rgb_data)
+
+            # Optionally augment the image
+            # processed_data = TrainingHelper.augment_data(processed_data)
+
             X[i] = processed_data
 
-            # We have a little hack here - we save captchas as TEXT_num.png if there is more than one captcha with the text "TEXT"
-            # So the real label should have the "_num" stripped out.
+
 
             # random_image_label = random_image_label.split('_')[0]
             random_image_label = '{:$<6}'.format(random_image_label.split('_')[0])
@@ -166,12 +174,25 @@ def main():
         # with tf.device('/device:XLA_CPU:0'):
         model = create_model(args.length, len(captcha_symbols), (args.height, args.width, 3))
 
+        # model = TrainingHelper.create_rnn_model((args.height, args.width, 3), num_classes=len(captcha_symbols))
+
         if args.input_model is not None:
             model.load_weights(args.input_model)
 
         model.compile(loss='categorical_crossentropy',
                       optimizer=keras.optimizers.Adam(1e-3, amsgrad=False),
                       metrics=['accuracy'] * args.length)
+
+
+        # model.compile(loss=TrainingHelper.ctc_loss(),
+        #               optimizer=keras.optimizers.Adam(1e-3, amsgrad=False),
+        #               metrics=['accuracy'])
+
+        # model.compile(loss=TrainingHelper.ctc_loss(),
+        #               optimizer=keras.optimizers.Adam(1e-3, amsgrad=False),
+        #               metrics=[TrainingHelper.ctc_accuracy()])
+
+
 
         model.summary()
         training_data = ImageSequence(args.train_dataset, args.batch_size, args.length, captcha_symbols, args.width,

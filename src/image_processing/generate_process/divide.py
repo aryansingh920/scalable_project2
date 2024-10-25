@@ -4,7 +4,7 @@ import shutil
 import random
 
 # Paths
-source_dir = '/Users/aryansingh/Documents/scalable_project2/src/data/test_dataset'  # The directory you want to split
+source_dir = '/Users/aryansingh/Documents/scalable_project2/src/data/test'  # The directory you want to split
 test_dir = '/Users/aryansingh/Documents/scalable_project2/src/data/training_data'  # Destination for 80% of the files
 validation_dir = '/Users/aryansingh/Documents/scalable_project2/src/data/validation_data'  # Destination for 20% of the files
 
