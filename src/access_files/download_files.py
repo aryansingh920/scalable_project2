@@ -19,8 +19,7 @@ def download_content(url, filename, retries=5, delay=2):
                     f.write(response.content)
                 return True  # Successful download
             else:
-                print(f"Failed to download {filename}: HTTP {
-                      response.status_code}")
+                print(f"Failed to download {filename}: HTTP {response.status_code}")
         except Exception as e:
             print(f"Error downloading {filename}: {e}")
 
@@ -46,8 +45,7 @@ def process_csv_parallel(csv_file, base_url, download_directory, max_workers=5):
             futures = []
             for row in csvreader:
                 # Submitting the download task for each row in the CSV
-                futures.append(executor.submit(
-                    process_row, row, base_url, download_directory))
+                futures.append(executor.submit(process_row, row, base_url, download_directory))
 
             # Collect results as they are completed
             for future in as_completed(futures):
@@ -58,10 +56,10 @@ def process_csv_parallel(csv_file, base_url, download_directory, max_workers=5):
 
 # Main script
 if __name__ == "__main__":
-    csv_file = r'missing_files1.csv'  # Use raw string for Windows path
+    csv_file = r'ramasamv.csv'  # Use raw string for Windows path
     # Replace with your base URL
-    base_url = 'https://cs7ns1.scss.tcd.ie/?shortname=singha12&myfilename='
-    download_directory = 'Missingfile'  # Directory to save downloaded files
+    base_url = 'https://cs7ns1.scss.tcd.ie/?shortname=ramasamv&myfilename='
+    download_directory = 'test_dataset'  # Directory to save downloaded files
 
     # Process CSV and download files in parallel
     process_csv_parallel(csv_file, base_url, download_directory, max_workers=8)
