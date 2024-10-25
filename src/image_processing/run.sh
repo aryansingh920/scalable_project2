@@ -22,7 +22,7 @@ python3.10 src/image_processing/generate_process/divide.py
 
 
 # to train
-python3.10 src/image_processing/train/train.py --train-dataset "src/data/training_data" --validate-dataset "src/data/validation_data" --batch-size 64 --epochs 12 --input-model "src/image_processing/captcha_model.h5" --output-model-name "src/image_processing/captcha_model.keras" --length 6 --width 192 --height 96 --symbols "src/image_processing/symbols.txt"
+python3.10 src/image_processing/train/train.py --train-dataset "src/data/training_data" --validate-dataset "src/data/validation_data" --batch-size 128 --epochs 1 --output-model-name "src/image_processing/models/25_10_2024_1epooch_dataPreprocessing/captcha_model.keras" --length 6 --width 192 --height 96 --symbols "src/image_processing/symbols.txt"
 
 
 

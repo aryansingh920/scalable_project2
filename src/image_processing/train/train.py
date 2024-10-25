@@ -3,7 +3,7 @@
 
 import warnings
 
-from src.image_processing.train.train_helper import TrainingHelper
+from train_helper import TrainingHelper
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -89,10 +89,10 @@ class ImageSequence(keras.utils.Sequence):
             processed_data = numpy.array(rgb_data) / 255.0
 
             # Preprocess the image
-            # processed_data = TrainingHelper.preprocess_image(rgb_data)
+            processed_data = TrainingHelper.preprocess_image(rgb_data)
 
             # Optionally augment the image
-            # processed_data = TrainingHelper.augment_data(processed_data)
+            processed_data = TrainingHelper.augment_data(processed_data)
 
             X[i] = processed_data
 
