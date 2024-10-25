@@ -3,7 +3,7 @@
 
 import warnings
 
-from src.image_processing.train.train_helper import TrainingHelper
+from train_helper import TrainingHelper
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
