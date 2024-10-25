@@ -56,7 +56,7 @@ def process_csv_parallel(csv_file, base_url, download_directory, max_workers=5):
 
 # Main script
 if __name__ == "__main__":
-    csv_file = r'ramasamv.csv'  # Use raw string for Windows path
+    csv_file = r'../../test.csv'  # Use raw string for Windows path
     # Replace with your base URL
     base_url = 'https://cs7ns1.scss.tcd.ie/?shortname=ramasamv&myfilename='
     download_directory = 'test_dataset'  # Directory to save downloaded files
